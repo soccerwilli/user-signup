@@ -18,45 +18,84 @@ import webapp2
 import cgi
 import re
 
+USER_REGEX = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")    #Regular Expressions (Regex)
+def valid_username(username):
+    return username and USER_REGEX.match(username)
+
+PASSWORD_REGEX = re.compile(r"^.{3,20}$")
+def valid_password(password):
+    return password and PASSWORD_REGEX.match(password)
+
+EMAIL_REGEX = re.compile(r'^[\S]+@[\S]+\.[\S]+$')
+def valid_email(email):
+    return not email or EMAIL_REGEX.match(email)
+
+params = dict(username = "",
+              error_username = "",
+              error_password = "",
+              error_verify = "",
+              error_email = "",
+              email = "")
+
 form = """
-<form action="/signup" method="post">
-    <h1>User Signup</h1>
-        <label>Username </label>
-            <input type="text" name="username" value=%(username)s>
-                <div style="color: red">%(error)s</div><br>
-        <label>Password </label>
-            <input type="password" name="password">
-                <div style="color: red">%(error)s</div><br>
-        <label>Verify Password </label>
-            <input type="password" name="verify">
-                <div style="color: red">%(error)s</div><br>
-        <label>Email (optional) </label>
-            <input type="text" name="email" value=%(email)s>
-                <div style='color: red'>%(error)s</div><br><br>
-            <input type="submit"/><br>
+<title>Signup</title>
+<form name="form" method="post">
+<h1>Signup</h1>
+    <table>
+        <tbody>
+            <tr>
+                <td>
+                    <label>Username </label>
+                </td>
+                <td>
+                    <input name="username" type="text" value=%(username)s>
+                </td>
+                <td>
+                    <span class="error" style="color: red">%(error_username)s</span>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <label>Password </label>
+                </td>
+                <td>
+                    <input name="password" type="password">
+                </td>
+                <td>
+                    <span class="error" style="color: red">%(error_password)s</span>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <label>Verify Password </label>
+                </td>
+                <td>
+                    <input name="verify" type="password">
+                </td>
+                <td>
+                    <span class="error" style="color: red">%(error_verify)s</span>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <label>Email (optional) </label>
+                </td>
+                <td>
+                    <input name="email" type="text" value=%(email)s>
+                </td>
+                <td>
+                    <span class="error" style="color: red">%(error_email)s</span>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <input type="submit">
 </form>
 """
 
 class MainHandler(webapp2.RequestHandler):
-    def get(self, error=""):
-        self.response.out.write(form % {"error": error})
-
-
-USERNAME_REG = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
-def valid_username(username):
-    return username and USERNAME_REG.match(username)
-
-PASSWORD_REG = re.compile(r"^.{3-20}$")
-def valid_password(password):
-    return password and PASSWORD_REG.match(password)
-
-EMAIL_REG = re.compile(r'^[\S]+@[\S]+\.[\S]+$')
-def valid_email(email):
-    return not email or EMAIL_REG.match(email)
-
-class Signup(MainHandler):
-    def get(self, error=""):
-            self.response.out.write(form % {"error": error})
+    def get(self):
+        self.response.out.write(form % params)
 
     def post(self):
         have_error = False
@@ -64,39 +103,53 @@ class Signup(MainHandler):
         password = self.request.get('password')
         verify = self.request.get('verify')
         email = self.request.get('email')
+        error_username = ""
+        error_password = ""
+        error_verify = ""
+        error_email = ""
+
+        params = dict(username = username,
+                      error_username = error_username,
+                      error_password = error_password,
+                      error_verify = error_verify,
+                      error_email = error_email,
+                      email = email)
 
         if not valid_username(username):
-            error = "That's not a valid username."
-            self.response.out.write(error)
+            params['error_username'] = "That's not a valid username."
             have_error = True
+
         if not valid_password(password):
-            error = "That's not a valid password."
-            self.response.out.write(error)
+            params['error_password'] = "That's not a valid password."
             have_error = True
         elif password != verify:
-            error = "The passwords didn't match."
-            self.response.out.write(error)
+            params['error_verify'] = "The passwords didn't match."
             have_error = True
+
         if not valid_email(email):
-            error = "That's not a valid email."
-            self.response.out.write(error)
+            params['error_email'] = "That's not a valid email."
             have_error = True
+
         if have_error:
-            self.redirect('/signup')
+            self.response.out.write(form % params)
         else:
-            self.redirect('/welcome')
+            self.redirect("/welcome?username=" + cgi.escape(username, quote=True))
 
 class Welcome(MainHandler):
     def get(self):
         username = self.request.get('username')
+        users = dict(username = username)
+        welcome = """
+        <title>Welcome</title>
+        <h1>Welcome, %(username)s</h1>
+        """
         if valid_username(username):
-            self.response.write("Welcome, " + username)
+            self.response.out.write(welcome % users)
         else:
-            self.redirect('/signup')
+            self.redirect('/')
 
 
 app = webapp2.WSGIApplication([
     ('/', MainHandler),
-    ('/signup', Signup),
     ('/welcome', Welcome)
 ], debug=True)
